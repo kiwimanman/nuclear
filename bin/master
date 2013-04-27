@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+require 'nuclear'
+require 'thor'
+
+class Master < Thor
+  desc "start ID", "start at a port (also serves as the id)"
+  def start(id, children = 1)
+    puts "Starting at #{id}"
+    id = id.to_i
+    servers = []
+    servers << build_frontend_server(id, children)
+    servers << build_backend_server(id + 1, children)
+
+    servers.each do |server| server.join end
+  end
+
+  no_commands do
+    def build_frontend_server(port, num_children)
+      handler = Nuclear::Handlers::DistributedStore.new(port, num_children)
+      processor = Nuclear::Store::Processor.new(handler)
+      transport = Thrift::ServerSocket.new(port)
+      transportFactory = Thrift::BufferedTransportFactory.new()
+      server = Thrift::SimpleServer.new(processor, transport, transportFactory)
+
+      Thread.new {
+        puts "Starting the frontend server..."
+        server.serve()
+        puts "done."
+      }
+    end
+
+    def build_backend_server(port, num_children)
+      handler = Nuclear::Handlers::Master.new()
+      processor = Nuclear::Master::Processor.new(handler)
+      transport = Thrift::ServerSocket.new(port)
+      transportFactory = Thrift::BufferedTransportFactory.new()
+      server = Thrift::SimpleServer.new(processor, transport, transportFactory)
+
+      Thread.new {
+        puts "Starting the backend server..."
+        server.serve()
+        puts "done."
+      }
+    end
+  end
+end
+
+Master.start(ARGV)

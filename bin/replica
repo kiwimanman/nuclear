@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+require 'nuclear'
+require 'thor'
+
+class Replica < Thor
+
+  desc "start ID", "start at a port (also serves as the id)"
+  def start(id)
+    puts "Starting at #{id}"
+    handler = Nuclear::Handlers::Replica.new(id)
+    processor = Nuclear::Replica::Processor.new(handler)
+    transport = Thrift::ServerSocket.new(id)
+    transportFactory = Thrift::BufferedTransportFactory.new()
+    server = Thrift::SimpleServer.new(processor, transport, transportFactory)
+
+    puts "Starting the replica server..."
+    server.serve()
+    puts "done."
+  end
+
+end
+
+Replica.start(ARGV)

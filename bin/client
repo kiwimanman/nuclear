@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+require 'nuclear'
+
+port = ARGV[0] || 5000
+
+transport = Thrift::BufferedTransport.new(Thrift::Socket.new('127.0.0.1', port))
+protocol = Thrift::BinaryProtocol.new(transport)
+client = Nuclear::Store::Client.new(protocol)
+
+transport.open()
+
+puts client.put("test", "asdf")
+sleep 1
+puts client.get("test")
+
+transport.close()
