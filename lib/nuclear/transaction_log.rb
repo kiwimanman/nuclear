@@ -7,7 +7,7 @@ module Nuclear
     Transaction = Struct.new(:status)
 
     def initialize(log_path = 'logs/master.log')
-      self.log = File.open(log_path, 'r+')
+      self.log = log_path.kind_of?(String) ? File.open(log_path, 'r+') : log_path
       self.log.sync
       self.mutex = Mutex.new
       self.transaction_index = 0
