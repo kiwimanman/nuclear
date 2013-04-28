@@ -7,37 +7,40 @@ class Master < Thor
   def start(id, children = 1)
     puts "Starting at #{id}"
     id = id.to_i
+
+    write_ahead_log = Nuclear::TransactionLog.new
+
     servers = []
-    servers << build_frontend_server(id, children)
-    servers << build_backend_server(id + 1, children)
+    servers << build_frontend_server(id, children, write_ahead_log)
+    servers << build_backend_server(id + 1, children, write_ahead_log)
 
     servers.each do |server| server.join end
   end
 
   no_commands do
-    def build_frontend_server(port, num_children)
-      handler = Nuclear::Handlers::DistributedStore.new(port, num_children)
+    def build_frontend_server(port, num_children, write_ahead_log)
+      handler = Nuclear::Handlers::DistributedStore.new(port, num_children, write_ahead_log)
       processor = Nuclear::Store::Processor.new(handler)
       transport = Thrift::ServerSocket.new(port)
       transportFactory = Thrift::BufferedTransportFactory.new()
       server = Thrift::SimpleServer.new(processor, transport, transportFactory)
 
       Thread.new {
-        puts "Starting the frontend server..."
+        puts "Starting the frontend server...\n"
         server.serve()
         puts "done."
       }
     end
 
-    def build_backend_server(port, num_children)
-      handler = Nuclear::Handlers::Master.new()
+    def build_backend_server(port, num_children, write_ahead_log)
+      handler = Nuclear::Handlers::Master.new(port, num_children, write_ahead_log)
       processor = Nuclear::Master::Processor.new(handler)
       transport = Thrift::ServerSocket.new(port)
       transportFactory = Thrift::BufferedTransportFactory.new()
       server = Thrift::SimpleServer.new(processor, transport, transportFactory)
 
       Thread.new {
-        puts "Starting the backend server..."
+        puts "Starting the backend server...\n"
         server.serve()
         puts "done."
       }

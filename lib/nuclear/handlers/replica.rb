@@ -22,7 +22,7 @@ module Nuclear
       end
   
       def votereq(transaction_id)
-        puts "votereq(transaction_id)"
+        puts "votereq(#{transaction_id})"
       end
   
       def finalize(transaction_id, decision)

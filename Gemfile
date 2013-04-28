@@ -2,6 +2,12 @@ source 'https://www.rubygems.org'
 
 gemspec
 
+gem 'guard'
+gem 'rb-fsevent', :require => false
+gem 'guard-shell'
+gem 'guard-rspec'
+gem 'terminal-notifier-guard'
+
 gem 'rspec'
 gem 'debugger'
 gem 'thrift'

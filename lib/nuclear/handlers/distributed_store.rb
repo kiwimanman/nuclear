@@ -1,32 +1,26 @@
 require 'nuclear/transaction_log'
+require 'nuclear/handlers/replica_connections'
 
 module Nuclear
   module Handlers
-    RemoteReplica = Struct.new(:transport, :client)
-    
     class DistributedStore
-      attr_accessor :port, :replica_connections, :log
+      include ReplicaConnections
 
-      def initialize(port, num_children)
-        self.log = TransactionLog.new
+      attr_accessor :port, :log
+
+      def initialize(port, num_children, log = nil)
+        self.log = log || TransactionLog.new
         self.port = port
-        self.replica_connections = (0..(num_children - 1)).map do |port_offset|
-          transport = Thrift::BufferedTransport.new(Thrift::Socket.new('127.0.0.1', port + port_offset + 100))
-          protocol = Thrift::BinaryProtocol.new(transport)
-          client = Nuclear::Replica::Client.new(protocol)
-
-          RemoteReplica.new(transport, client)
-        end
+        build_replica_connections(port, num_children)
       end
 
       def put(key, value)
         puts "put(#{key}, #{value})"
-        transaction_id = log.next_transaction(key)
-        unless transaction_aborted?(transaction_id)
-          replica_connections.each do |connection|
-            connect_with(connection) do |client|
-              client.put(key,value,transaction_id)
-            end
+        transaction_id = log.next_transaction(key).to_s
+        unless log.transaction_aborted?(transaction_id)
+          broadcast do
+            client.put(key,value,transaction_id)
+            client.votereq(transaction_id)
           end
         end
         transaction_id
@@ -46,17 +40,7 @@ module Nuclear
       end
 
       def status(transaction_id)
-        puts "status(transaction_id)"
-        transaction_status(transaction_id)
-      end
-
-      private
-
-      def connect_with(replica)
-        replica.transport.open
-        value = yield replica.client
-        replica_connections[0].transport.close
-        value
+        log.status_of(transaction_id)
       end
     end
   end

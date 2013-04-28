@@ -2,14 +2,15 @@ require 'thread'
 
 module Nuclear
   class TransactionLog
-    attr_accessor :mutex, :transaction_index, :key_locks
+    attr_accessor :mutex, :transaction_index, :key_locks, :vote_lock
     attr_accessor :transation_records, :log
-    Transaction = Struct.new(:status)
+    Transaction = Struct.new(:status, :votes)
 
     def initialize(log_path = 'logs/master.log')
       self.log = log_path.kind_of?(String) ? File.open(log_path, 'r+') : log_path
       self.log.sync
       self.mutex = Mutex.new
+      self.vote_lock = Mutex.new
       self.transaction_index = 0
       self.key_locks = Set.new
       self.transation_records = {}
@@ -18,38 +19,54 @@ module Nuclear
     end
 
     def next_transaction(key)
+      # Sane defaults and scoping
+      transaction_id = transaction_index
+      status = Status::PENDING
+
+      # Thread safety, re-evaluate stuff
       mutex.synchronize do
-        status = key_locks.include?(key) ? Status::ABORTED : Status::PENDING
+        status = Status::ABORTED if key_locks.include?(key)
         key_locks << key
         
         transaction_id = transaction_index
         self.transaction_index += 1
       end
       log.puts transaction_id
-      transation_records[transaction_id] = Transaction.new(status)
+      transation_records[transaction_id] = Transaction.new(status, 0)
       transaction_id
     end
 
-    def transaction_status(transaction_id)
-      transation_records[transaction_id].status
+    def status(transaction_id)
+      transation_records[transaction_id.to_i].status
+    end
+    alias_method :status_of, :status
+
+    def pending?(transaction_id)
+      status(transaction_id.to_i) == Status::PENDING
     end
 
-    def transaction_pending?(transaction_id)
-      transaction_status(transaction_id) == Status::PENDING
+    def aborted?(transaction_id)
+      status(transaction_id.to_i) == Status::ABORTED
     end
 
-    def transaction_aborted?(transaction_id)
-      transaction_status(transaction_id) == Status::ABORTED
-    end
-
-    def commit_transaction(transaction_id)
+    def commit(transaction_id)
       log.puts "#{transaction_id} commit"
-      transation_records[transaction_id].status = Status::COMMITED
+      transation_records[transaction_id.to_i].status = Status::COMMITED
     end
 
-    def abort_transaction(transaction_id)
+    def abort(transaction_id)
       log.puts "#{transaction_id} abort"
-      transation_records[transaction_id].status = Status::ABORTED
+      transation_records[transaction_id.to_i].status = Status::ABORTED
+    end
+
+    def upvote(transaction_id)
+      vote_lock.synchronize do
+        transation_records[transaction_id.to_i].votes += 1
+      end
+    end
+
+    def total_votes_on(transaction_id)
+      transation_records[transaction_id.to_i].votes
     end
 
     private
@@ -68,7 +85,7 @@ module Nuclear
       end
 
       transation_records.each do |t_id, v|
-        abort_transaction(t_id) if transaction_pending?(t_id)
+        abort(t_id) if pending?(t_id)
       end
     end
   end
