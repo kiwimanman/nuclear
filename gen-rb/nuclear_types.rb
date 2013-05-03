@@ -18,8 +18,9 @@ module Nuclear
     ABORTED = 1
     COMMITED = 2
     PENDING = 3
-    VALUE_MAP = {1 => "ABORTED", 2 => "COMMITED", 3 => "PENDING"}
-    VALID_VALUES = Set.new([ABORTED, COMMITED, PENDING]).freeze
+    UNCERTAIN = 4
+    VALUE_MAP = {1 => "ABORTED", 2 => "COMMITED", 3 => "PENDING", 4 => "UNCERTAIN"}
+    VALID_VALUES = Set.new([ABORTED, COMMITED, PENDING, UNCERTAIN]).freeze
   end
 
 end

@@ -15,7 +15,7 @@ module Nuclear
       end
 
       def cast_vote(transaction_id, vote)
-        if vote == Nuclear::Vote::NO
+        if vote == Vote::NO
           abort(transaction_id)
         else
           log.upvote(transaction_id)
@@ -31,15 +31,15 @@ module Nuclear
 
       def abort(transaction_id)
         log.abort(transaction_id)
-        broadcast do
-          transaction_id
+        broadcast do |client|
+          client.finalize(transaction_id, Status::ABORTED)
         end
       end
 
       def commit(transaction_id)
         log.commit(transaction_id)
-        broadcast do
-          transaction_id
+        broadcast do |client|
+          client.finalize(transaction_id, Status::COMMITTED)
         end
       end
     end

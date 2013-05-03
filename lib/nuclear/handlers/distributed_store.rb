@@ -17,8 +17,8 @@ module Nuclear
       def put(key, value)
         puts "put(#{key}, #{value})"
         transaction_id = log.next_transaction(key).to_s
-        unless log.transaction_aborted?(transaction_id)
-          broadcast do
+        unless log.aborted?(transaction_id)
+          broadcast do |client|
             client.put(key,value,transaction_id)
             client.votereq(transaction_id)
           end
@@ -36,7 +36,15 @@ module Nuclear
       end
 
       def remove(key)
-        puts "remove(key)" 
+        puts "remove(key)"
+        transaction_id = log.next_transaction(key).to_s
+        unless log.aborted?(transaction_id)
+          broadcast do |client|
+            client.remove(key)
+            client.votereq(transaction_id)
+          end
+        end
+        transaction_id
       end
 
       def status(transaction_id)

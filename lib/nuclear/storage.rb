@@ -1,5 +1,7 @@
 require 'sqlite3'
 
+# Idea is:
+# One transaction per store, one store per thread.
 module Nuclear
   class Storage
     private
@@ -33,6 +35,14 @@ module Nuclear
 
     def delete(key)
       db.execute "DELETE FROM Store WHERE key = \"#{key}\""
+    end
+
+    def commit
+      db.commit
+    end
+
+    def rollback
+      db.rollback
     end
   end
 end

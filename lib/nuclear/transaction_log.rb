@@ -7,7 +7,13 @@ module Nuclear
     Transaction = Struct.new(:status, :votes)
 
     def initialize(log_path = 'logs/master.log')
-      self.log = log_path.kind_of?(String) ? File.open(log_path, 'r+') : log_path
+      if log_path.kind_of?(String)
+
+        self.log = File.open(log_path, File.exists?(log_path) ? 'r+' : 'a+')
+      else
+        self.log = log_path
+      end
+
       self.log.sync
       self.mutex = Mutex.new
       self.vote_lock = Mutex.new
@@ -18,21 +24,30 @@ module Nuclear
       start_from_log
     end
 
-    def next_transaction(key)
-      # Sane defaults and scoping
-      transaction_id = transaction_index
+    def add_transaction(key, transaction_id)
       status = Status::PENDING
 
-      # Thread safety, re-evaluate stuff
       mutex.synchronize do
         status = Status::ABORTED if key_locks.include?(key)
         key_locks << key
-        
+      end
+      
+      log.puts transaction_id
+      transation_records[transaction_id] = Transaction.new(status, 0)
+      status
+    end
+
+    def next_transaction(key)
+      # Sane defaults and scoping
+      transaction_id = transaction_index
+
+      # Thread safety, re-evaluate stuff
+      mutex.synchronize do
         transaction_id = transaction_index
         self.transaction_index += 1
       end
-      log.puts transaction_id
-      transation_records[transaction_id] = Transaction.new(status, 0)
+
+      add_transaction(key, transaction_id)
       transaction_id
     end
 
@@ -49,6 +64,10 @@ module Nuclear
       status(transaction_id.to_i) == Status::ABORTED
     end
 
+    def uncertain?(transaction_id)
+      status(transaction_id.to_i) == Status::UNCERTAIN
+    end
+
     def commit(transaction_id)
       log.puts "#{transaction_id} commit"
       transation_records[transaction_id.to_i].status = Status::COMMITED
@@ -60,7 +79,10 @@ module Nuclear
     end
 
     def upvote(transaction_id)
+      log.puts "#{transaction_id} voted"
       vote_lock.synchronize do
+        transation_records[transaction_id.to_i] ||= Transaction.new(Status::PENDING, 0)
+        transation_records[transaction_id.to_i].votes ||= 0
         transation_records[transaction_id.to_i].votes += 1
       end
     end
@@ -76,8 +98,9 @@ module Nuclear
         transaction_id, status = line.split(' ')
         transaction_id = transaction_id.to_i
 
-        status = Status::ABORTED  if status =~ /abort/
-        status = Status::COMMITED if status =~ /commit/
+        status = Status::ABORTED   if status =~ /abort/
+        status = Status::COMMITED  if status =~ /commit/
+        status = Status::UNCERTAIN if status =~ /voted/
 
         transation_records[transaction_id] = Transaction.new(status || Status::PENDING)
 
@@ -85,7 +108,7 @@ module Nuclear
       end
 
       transation_records.each do |t_id, v|
-        abort(t_id) if pending?(t_id)
+        abort(t_id) if pending?(t_id) && !uncertain?(t_id)
       end
     end
   end

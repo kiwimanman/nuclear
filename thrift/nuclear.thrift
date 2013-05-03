@@ -6,9 +6,10 @@ enum Vote {
 }
 
 enum Status {
-  ABORTED  = 1,
-  COMMITED = 2,
-  PENDING  = 3
+  ABORTED   = 1,
+  COMMITED  = 2,
+  PENDING   = 3,
+  UNCERTAIN = 4
 }
 
 service store {
@@ -23,7 +24,7 @@ service replica {
        string      get(1:string key),
   oneway void   remove(1:string key, 2:string transaction_id),
   oneway void  votereq(1:string transaction_id),
-  oneway void finalize(1:string transaction_id, 2:string decision)
+  oneway void finalize(1:string transaction_id, 2:Status decision)
        Status   status(1:string transaction_id)
 }
 

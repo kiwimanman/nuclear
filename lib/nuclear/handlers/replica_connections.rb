@@ -1,7 +1,7 @@
 module Nuclear
   module Handlers
     RemoteReplica = Struct.new(:transport, :client)
-    
+
     module ReplicaConnections
       attr_accessor :replica_connections
 
@@ -18,7 +18,7 @@ module Nuclear
       def broadcast
         replica_connections.each do |connection|
           connect_with(connection) do |client|
-            yield
+            yield client
           end
         end
       end

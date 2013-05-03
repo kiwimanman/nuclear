@@ -255,12 +255,15 @@ module Nuclear
 
       FIELDS = {
         TRANSACTION_ID => {:type => ::Thrift::Types::STRING, :name => 'transaction_id'},
-        DECISION => {:type => ::Thrift::Types::STRING, :name => 'decision'}
+        DECISION => {:type => ::Thrift::Types::I32, :name => 'decision', :enum_class => ::Nuclear::Status}
       }
 
       def struct_fields; FIELDS; end
 
       def validate
+        unless @decision.nil? || ::Nuclear::Status::VALID_VALUES.include?(@decision)
+          raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN, 'Invalid value of field decision!')
+        end
       end
 
       ::Thrift::Struct.generate_accessors self
