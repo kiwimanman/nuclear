@@ -6,11 +6,13 @@ module Nuclear
   class Storage
     private
     attr_accessor :db
-
+    attr_accessor :auto_commit
     public
 
     def initialize(database, options = {})
       self.db = SQLite3::Database.new database
+
+      self.auto_commit = options[:auto_commit].nil? ? true : options[:auto_commit]
 
       # Create a database
       rows = db.execute <<-SQL
@@ -30,10 +32,12 @@ module Nuclear
     end
 
     def put(key, value)
+      db.transaction unless auto_commit
       db.execute "INSERT OR REPLACE INTO Store (key, value) VALUES ( ?, ?)", key.to_s, value.to_s
     end
 
     def delete(key)
+      db.transaction unless auto_commit
       db.execute "DELETE FROM Store WHERE key = \"#{key}\""
     end
 

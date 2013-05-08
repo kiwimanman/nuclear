@@ -4,7 +4,7 @@ describe Nuclear::Storage do
   let(:db_path) { 'test.db' }
   let(:store) { 
     system("rm -rf #{db_path}") # look ma, I'm rails
-    Nuclear::Storage.new(db_path, :auto_commit => false)
+    Nuclear::Storage.new(db_path)
   }
   it { expect(store).to_not be_nil }
 
@@ -40,5 +40,37 @@ describe Nuclear::Storage do
       store.delete(:doomed)
     end
     it { expect(store.get(:doomed)).to be_nil }
+  end
+
+  context 'two storage handles' do
+    let(:store1) do
+      system("rm -rf #{db_path}") # look ma, I'm rails
+      Nuclear::Storage.new(db_path, :auto_commit => false)
+    end
+    let(:store2) do
+      Nuclear::Storage.new(db_path, :auto_commit => false)
+    end
+    before do
+      store1.put('qwerty', '1')
+    end
+    it 'can not be seen by other stores till commited' do
+      expect(store2.get('qwerty')).to be_nil
+    end
+
+    context 'with a new store (say after a crash)' do
+      let(:store3) do
+        Nuclear::Storage.new(db_path, :auto_commit => false)
+      end
+      it 'can not be seen by other stores till commited' do
+        expect(store3.get('qwerty')).to be_nil
+      end
+      context 'after commit' do
+        before do
+          store1.commit
+        end
+        it { expect(store3.get('qwerty')).to eq '1' }
+      end
+    end
+
   end
 end
