@@ -9,12 +9,7 @@ class Master < Thor
     id = id.to_i
 
     write_ahead_log = Nuclear::TransactionLog.new
-
-    servers = []
-    servers << build_frontend_server(id, children, write_ahead_log)
-    servers << build_backend_server(id + 1, children, write_ahead_log)
-
-    servers.each do |server| server.join end
+    build_frontend_server(id, children, write_ahead_log)
   end
 
   no_commands do
@@ -25,25 +20,10 @@ class Master < Thor
       transportFactory = Thrift::BufferedTransportFactory.new()
       server = Thrift::SimpleServer.new(processor, transport, transportFactory)
 
-      Thread.new {
-        puts "Starting the frontend server...\n"
-        server.serve()
-        puts "done."
-      }
-    end
 
-    def build_backend_server(port, num_children, write_ahead_log)
-      handler = Nuclear::Handlers::Master.new(port, num_children, write_ahead_log)
-      processor = Nuclear::Master::Processor.new(handler)
-      transport = Thrift::ServerSocket.new(port)
-      transportFactory = Thrift::BufferedTransportFactory.new()
-      server = Thrift::SimpleServer.new(processor, transport, transportFactory)
-
-      Thread.new {
-        puts "Starting the backend server...\n"
-        server.serve()
-        puts "done."
-      }
+      puts "Starting the frontend server...\n"
+      server.serve()
+      puts "done."
     end
   end
 end

@@ -6,10 +6,11 @@ module Nuclear
     class DistributedStore
       include ReplicaConnections
 
-      attr_accessor :port, :log
+      attr_accessor :port, :log, :num_children
 
       def initialize(port, num_children, log = nil)
         self.log = log || TransactionLog.new
+        self.num_children = num_children
         self.port = port
         build_replica_connections(port, num_children)
       end
@@ -47,8 +48,35 @@ module Nuclear
         transaction_id
       end
 
+      def cast_vote(transaction_id, vote)
+        puts "cast_vote(#{transaction_id},#{vote})"
+        if vote == Vote::NO
+          abort(transaction_id)
+        else
+          log.upvote(transaction_id)
+          commit(transaction_id) if log.total_votes_on(transaction_id) == num_children
+        end
+      end
+
       def status(transaction_id)
         log.status_of(transaction_id)
+      end
+
+      private
+
+      def abort(transaction_id)
+        log.abort(transaction_id)
+        broadcast do |client|
+          client.finalize(transaction_id, Status::ABORTED)
+        end
+      end
+
+      def commit(transaction_id)
+        puts "commit(#{transaction_id})"
+        log.commit(transaction_id)
+        broadcast do |client|
+          client.finalize(transaction_id, Status::COMMITED)
+        end
       end
     end
   end

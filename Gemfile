@@ -2,6 +2,7 @@ source 'https://www.rubygems.org'
 
 gemspec
 
+gem 'celluloid'
 gem 'guard'
 gem 'rb-fsevent', :require => false
 gem 'guard-shell'

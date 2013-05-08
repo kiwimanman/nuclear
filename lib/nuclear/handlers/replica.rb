@@ -26,10 +26,12 @@ module Nuclear
       end
   
       def votereq(transaction_id)
+        puts "votereq(#{transaction_id})"
         case log.status(transaction_id)
-          when Status::Pending
+          when Status::PENDING
             upvote(transaction_id)
-          when Status::Uncertain # Noop, must have no action in this corner case
+          when Status::UNCERTAIN
+            upvote(transaction_id) # Ths should likely never happen
           else
             abort(transaction_id)
         end
@@ -50,11 +52,19 @@ module Nuclear
 
       def master
         return @master if @master
-        transport = Thrift::BufferedTransport.new(Thrift::Socket.new('127.0.0.1', port % 100 * 100 - 100 + 1))
+        transport = Thrift::BufferedTransport.new(Thrift::Socket.new('127.0.0.1', master_port))
         protocol = Thrift::BinaryProtocol.new(transport)
-        client = Nuclear::Master::Client.new(protocol)
+        @master = Nuclear::Store::Client.new(protocol)
 
-        @master = RemoteReplica.new(transport, client)
+        RemoteReplica.new(transport, @master)
+
+        transport.open()
+
+        @master
+      end
+
+      def master_port
+        port.to_i / 100 * 100 - 100
       end
 
       def upvote(transaction_id)

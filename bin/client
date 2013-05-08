@@ -9,8 +9,13 @@ client = Nuclear::Store::Client.new(protocol)
 
 transport.open()
 
-puts client.put("test", "asdf")
+t_id = client.put("test", "asdf")
+t_id1 = client.put("test", "asdf")
+puts t_id
 sleep 1
 puts client.get("test")
+sleep 1
+puts Nuclear::Status::VALUE_MAP[client.status(t_id)]
+puts Nuclear::Status::VALUE_MAP[client.status("12400")]
 
 transport.close()

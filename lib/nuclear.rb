@@ -2,8 +2,8 @@ require 'ruby-debug'
 
 # Client/Server interfaces
 require 'store'
-require 'master'
 require 'replica'
+require 'celluloid'
 
 # Libs and handlers
 require 'nuclear/storage'

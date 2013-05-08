@@ -1,12 +1,8 @@
 require 'spec_helper'
 
-describe Nuclear::Handlers::Master do
+describe Nuclear::Handlers::DistributedStore do
   context 'with one child' do
-    let(:master) { Nuclear::Handlers::Master.new(4000, 1) }
-
-    context '#status' do
-      it { expect(master.status(1)).to be Nuclear::Status::ABORTED }
-    end
+    let(:master) { Nuclear::Handlers::DistributedStore.new(4000, 1) }
    
     context '#cast_vote' do
       let(:transaction_id) { '12345' }
@@ -26,7 +22,7 @@ describe Nuclear::Handlers::Master do
   end
 
   context 'with two children' do
-    let(:master) { Nuclear::Handlers::Master.new(4000, 2) }
+    let(:master) { Nuclear::Handlers::DistributedStore.new(4000, 2) }
    
     context '#cast_vote' do
       let(:transaction_id) { '12345' }

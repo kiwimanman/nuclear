@@ -57,6 +57,13 @@ module Nuclear
         raise ::Thrift::ApplicationException.new(::Thrift::ApplicationException::MISSING_RESULT, 'remove failed: unknown result')
       end
 
+      def cast_vote(transaction_id, vote)
+        send_cast_vote(transaction_id, vote)
+      end
+
+      def send_cast_vote(transaction_id, vote)
+        send_message('cast_vote', Cast_vote_args, :transaction_id => transaction_id, :vote => vote)
+      end
       def status(transaction_id)
         send_status(transaction_id)
         return recv_status()
@@ -96,6 +103,12 @@ module Nuclear
         result = Remove_result.new()
         result.success = @handler.remove(args.key)
         write_result(result, oprot, 'remove', seqid)
+      end
+
+      def process_cast_vote(seqid, iprot, oprot)
+        args = read_args(iprot, Cast_vote_args)
+        @handler.cast_vote(args.transaction_id, args.vote)
+        return
       end
 
       def process_status(seqid, iprot, oprot)
@@ -197,6 +210,42 @@ module Nuclear
 
       FIELDS = {
         SUCCESS => {:type => ::Thrift::Types::STRING, :name => 'success'}
+      }
+
+      def struct_fields; FIELDS; end
+
+      def validate
+      end
+
+      ::Thrift::Struct.generate_accessors self
+    end
+
+    class Cast_vote_args
+      include ::Thrift::Struct, ::Thrift::Struct_Union
+      TRANSACTION_ID = 1
+      VOTE = 2
+
+      FIELDS = {
+        TRANSACTION_ID => {:type => ::Thrift::Types::STRING, :name => 'transaction_id'},
+        VOTE => {:type => ::Thrift::Types::I32, :name => 'vote', :enum_class => ::Nuclear::Vote}
+      }
+
+      def struct_fields; FIELDS; end
+
+      def validate
+        unless @vote.nil? || ::Nuclear::Vote::VALID_VALUES.include?(@vote)
+          raise ::Thrift::ProtocolException.new(::Thrift::ProtocolException::UNKNOWN, 'Invalid value of field vote!')
+        end
+      end
+
+      ::Thrift::Struct.generate_accessors self
+    end
+
+    class Cast_vote_result
+      include ::Thrift::Struct, ::Thrift::Struct_Union
+
+      FIELDS = {
+
       }
 
       def struct_fields; FIELDS; end

@@ -13,10 +13,11 @@ enum Status {
 }
 
 service store {
-  string    put(1:string key, 2:string value),
-  string    get(1:string key),
-  string remove(1:string key),
-  Status status(1:string transaction_id)
+       string       put(1:string key, 2:string value),
+       string       get(1:string key),
+       string    remove(1:string key),
+  oneway void cast_vote(1:string transaction_id, 2:Vote vote),
+       Status    status(1:string transaction_id)
 }
 
 service replica {
@@ -26,9 +27,4 @@ service replica {
   oneway void  votereq(1:string transaction_id),
   oneway void finalize(1:string transaction_id, 2:Status decision)
        Status   status(1:string transaction_id)
-}
-
-service master {
-  oneway void cast_vote(1:string transaction_id, 2:Vote vote),
-       Status    status(1:string transaction_id)
 }
