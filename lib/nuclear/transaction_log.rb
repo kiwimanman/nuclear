@@ -1,46 +1,40 @@
-require 'thread'
+require 'celluloid'
+require 'nuclear/transaction'
 
 module Nuclear
   class TransactionLog
     include Celluloid
 
-    attr_accessor :transaction_index, :key_locks
+    attr_accessor :transaction_index
     attr_accessor :transation_records, :log, :timeout
-
-    Transaction = Struct.new(:status, :votes, :key, :last_touched)
 
     def initialize(log_path = 'logs/master.log')
       if log_path.kind_of?(String)
 
-        self.log = File.open(log_path, File.exists?(log_path) ? 'r+' : 'a+')
+        Actor.current.log = File.open(log_path, File.exists?(log_path) ? 'r+' : 'a+')
       else
-        self.log = log_path
+        Actor.current.log = log_path
       end
 
-      self.log.sync
-      self.transaction_index = 0
-      self.key_locks = Set.new
-      self.transation_records = {}
-      self.timeout = 5
+      Actor.current.log.sync
+      Actor.current.transaction_index = 0
+      Actor.current.transation_records = {}
+      Actor.current.timeout = 5
 
       start_from_log
     end
 
-    def add_transaction(key, transaction_id)
-      status = key_locks.include?(key) ? Status::ABORTED : Status::PENDING
-
-      key_locks << key
-      
-      log.puts transaction_id
-      transation_records[transaction_id.to_i] = Transaction.new(status, 0, key, Time.now)
-      status
+    def add_transaction(key, transaction_id, operation, *args)  
+      log.puts "#{transaction_id} start #{operation} #{key} #{args.join(' ')}"
+      transation_records[transaction_id.to_i] = Transaction.start(transaction_id, operation, key, args)
+      transation_records[transaction_id.to_i].status
     end
 
-    def next_transaction(key)
+    def next_transaction(key, operation, *args)
       transaction_id = transaction_index
-      self.transaction_index += 1
+      Actor.current.transaction_index += 1
 
-      add_transaction(key, transaction_id)
+      add_transaction(key, transaction_id, operation, args)
       transaction_id
     end
 
@@ -62,7 +56,6 @@ module Nuclear
     end
 
     def uncertain?(transaction_id)
-      debugger if $debug
       touch(transaction_id)
       status(transaction_id.to_i) == Status::UNCERTAIN
     end
@@ -70,22 +63,26 @@ module Nuclear
     def commit(transaction_id)
       log.puts "#{transaction_id} commit"
       transaction = transation_records[transaction_id.to_i]
+      transaction.status = Status::COMMIT
+    end
+
+    def commited(transaction_id)
+      log.puts "#{transaction_id} commited"
+      transaction = transation_records[transaction_id.to_i]
       transaction.status = Status::COMMITED
-      key_locks.delete(transaction.key) if transaction.key
     end
 
     def abort(transaction_id)
       log.puts "#{transaction_id} abort"
       transaction = transation_records[transaction_id.to_i]
       transaction.status = Status::ABORTED if transaction.status == Status::PENDING
-      key_locks.delete(transaction.key) if transaction.key
     end
 
     def upvote(transaction_id)
       log.puts "#{transaction_id} voted"
 
       touch(transaction_id)
-      transation_records[transaction_id.to_i] ||= Transaction.new(Status::PENDING, 0)
+      transation_records[transaction_id.to_i]
       transation_records[transaction_id.to_i].votes ||= 0
       transation_records[transaction_id.to_i].votes += 1
     end
@@ -103,24 +100,26 @@ module Nuclear
       transaction.last_touched = now if transaction
     end
 
+    def get(transaction_id)
+      transation_records[transaction_id.to_i]
+    end
+
+    def unfinished_transactions
+      transation_records.values.select { |t| t.status == Status::PENDING || t.status == Status::COMMIT }
+    end
+
     private
 
     def start_from_log
       log.each do |line|
-        transaction_id, status = line.split(' ')
+        next if line.empty?
+        transaction_id, line = line.split(' ', 2)
         transaction_id = transaction_id.to_i
+  
+        transation_records[transaction_id] ||= Transaction.new(transaction_id)
+        transation_records[transaction_id].read_log_line(line)    
 
-        status = Status::ABORTED   if status =~ /abort/
-        status = Status::COMMITED  if status =~ /commit/
-        status = Status::UNCERTAIN if status =~ /voted/
-
-        transation_records[transaction_id] = Transaction.new(status || Status::PENDING)
-
-        self.transaction_index = [transaction_id + 1, transaction_index].max
-      end
-
-      transation_records.each do |t_id, v|
-        abort(t_id) if pending?(t_id) && !uncertain?(t_id)
+        Actor.current.transaction_index = [transaction_id + 1, transaction_index].max
       end
     end
   end

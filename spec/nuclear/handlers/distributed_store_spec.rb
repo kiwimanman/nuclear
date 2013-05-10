@@ -28,11 +28,11 @@ describe Nuclear::Handlers::DistributedStore do
         before do
           d_s.put("test", "asdf")
         end
-        it { expect(d_s.status(0)).to be Nuclear::Status::PENDING }
+        it { expect(d_s.status('0')).to be Nuclear::Status::PENDING }
         it "assigns a higher t_id and aborts it" do
           t_id = d_s.put("test", "asdf")
           expect(t_id.to_i > 0).to be_true
-          expect(d_s.status(t_id)).to be Nuclear::Status::ABORTED 
+          expect(d_s.status(t_id)).to be Nuclear::Status::PENDING # No reason to enforce consistency control here 
         end
       end
     end

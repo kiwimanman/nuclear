@@ -15,7 +15,7 @@ describe Nuclear::TransactionLog do
       end
 
       context '#next_transaction' do
-        it { expect(t_log.next_transaction("test")).to eq 4 }
+        it { expect(t_log.next_transaction("test", :put)).to eq 4 }
       end
     end
 
@@ -24,10 +24,10 @@ describe Nuclear::TransactionLog do
         f = File.open('spec/logs/master.log', 'r+')
         f.instance_eval do
           def each
-            ['1',
-             '2',
+            ['1 start puts test qwerty',
+             '2 start remove asdf',
              '2 abort',
-             '3',
+             '3 start remove bogus',
              '3 commit'].each do |line|
               yield line
             end
@@ -38,9 +38,9 @@ describe Nuclear::TransactionLog do
       let(:t_log) do
         Nuclear::TransactionLog.new(file)
       end
-      it 'aborts the open transaction' do
-        file.should_receive(:puts).with('1 abort')
-        t_log
+      context '#unfinished_transactions' do
+        let(:unfinished) { t_log.unfinished_transactions }
+        it { expect(unfinished.length).to be 2 }
       end
     end
   end

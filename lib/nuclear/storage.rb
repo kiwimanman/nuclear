@@ -1,13 +1,13 @@
 require 'sqlite3'
+require 'celluloid'
 
 # Idea is:
 # One transaction per store, one store per thread.
 module Nuclear
   class Storage
-    private
-    attr_accessor :db
-    attr_accessor :auto_commit
-    public
+    include Celluloid
+
+    attr_accessor :db, :auto_commit, :replica
 
     def initialize(database, options = {})
       self.db = SQLite3::Database.new database
@@ -43,10 +43,12 @@ module Nuclear
 
     def commit
       db.commit
+      replica.enqueue if replica
     end
 
     def rollback
       db.rollback
+      replica.enqueue if replica
     end
   end
 end

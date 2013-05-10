@@ -1,6 +1,6 @@
-1
-2
+1 start put test asdf
+2 start remove bogus
 2 abort
-3
+3 start put meh k
 3 commit
 1 abort

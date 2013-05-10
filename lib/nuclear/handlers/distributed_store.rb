@@ -17,7 +17,7 @@ module Nuclear
 
       def put(key, value)
         puts "put(#{key}, #{value})"
-        transaction_id = log.next_transaction(key).to_s
+        transaction_id = log.next_transaction(key, :put, value).to_s
         unless log.aborted?(transaction_id)
           broadcast do |client|
             client.put(key,value,transaction_id)
@@ -38,7 +38,7 @@ module Nuclear
 
       def remove(key)
         puts "remove(key)"
-        transaction_id = log.next_transaction(key).to_s
+        transaction_id = log.next_transaction(key, :remove).to_s
         unless log.aborted?(transaction_id)
           broadcast do |client|
             client.remove(key)

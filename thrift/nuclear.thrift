@@ -9,7 +9,8 @@ enum Status {
   ABORTED   = 1,
   COMMITED  = 2,
   PENDING   = 3,
-  UNCERTAIN = 4
+  UNCERTAIN = 4,
+  COMMIT    = 5
 }
 
 service store {
