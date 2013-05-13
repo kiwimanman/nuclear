@@ -1,10 +1,13 @@
 require 'thread'
+require 'nuclear/handlers/timeout_checker'
 
 module Nuclear
   module Handlers
     class Replica
+      include TimeoutChecker
+
       attr_accessor :store, :master, :port, :log, :transactors, :db_path
-      attr_accessor :mutex, :queue
+      attr_accessor :mutex, :queue, :timeout
 
       def initialize(replica_id, port = nil, log = nil)
         replica_id = replica_id.to_s
@@ -13,10 +16,12 @@ module Nuclear
         self.store = Nuclear::Storage.new(db_path)
         self.port  = replica_id || port
         self.transactors = {}
+        self.timeout = 5
         self.mutex = Mutex.new
         self.queue = Queue.new
 
         recover
+        gossip
       end
 
       def put(key, value, transaction_id)
@@ -31,6 +36,7 @@ module Nuclear
       end
 
       def get(key)
+        puts "get(#{key})"
         store.get(key)
       end
   
@@ -53,15 +59,18 @@ module Nuclear
             upvote(transaction_id) # Ths should likely never happen but is safe
           else
             abort(transaction_id)
-            master.cast_vote(transaction_id, Vote::NO)
+            master do |m| 
+              m.cast_vote(transaction_id, Vote::NO)
+            end
         end
       end
   
       def finalize(transaction_id, decision)
+        puts "finalize(#{transaction_id}, #{decision})"
         case decision
           when Status::COMMITED
             commit(transaction_id)
-          when Status::ABORTTED
+          when Status::ABORTED
             abort(transaction_id)
         end
       end
@@ -96,7 +105,6 @@ module Nuclear
       end
 
       def master
-        return @master if @master
         transport = Thrift::BufferedTransport.new(Thrift::Socket.new('127.0.0.1', master_port))
         protocol = Thrift::BinaryProtocol.new(transport)
         @master = Nuclear::Store::Client.new(protocol)
@@ -105,7 +113,10 @@ module Nuclear
 
         transport.open()
 
-        @master
+        yield @master
+
+        transport.close()
+
       end
 
       def master_port
@@ -114,15 +125,17 @@ module Nuclear
       end
 
       def upvote(transaction_id)
-        log.upvote(transaction_id)
-        master.cast_vote(transaction_id, Vote::YES)
+        vote = log.upvote(transaction_id) ? Vote::YES : Vote::NO
+        master do |m| 
+          m.cast_vote(transaction_id, vote)
+        end
       end
 
       def abort(transaction_id, clear_key_lock = true)
         log.abort(transaction_id)
         t = log.get(transaction_id)
         if clear_key_lock
-          transactors[t.key].rollback 
+          transactors[t.key].rollback if t && transactors[t.key]
           transactors.delete(t.key)
         end
       end
@@ -130,21 +143,17 @@ module Nuclear
       def commit(transaction_id, clear_key_lock = true)
         log.commit(transaction_id)
         t = log.get(transaction_id)
-        transactors[t.key].commit
+        transactors[t.key].commit if t && transactors[t.key]
         log.commited(transaction_id)
         transactors.delete(t.key) if clear_key_lock
       end
 
-      def recover
-        replay_list = log.unfinished_transactions
-        replay_list.each do |t|
-          t.replay(self)
-
-          case t.status
-          when Status::COMMIT
-            commit(t.transaction_id)
-          when Status::PENDING
-            abort(t.transaction_id)
+      def gossip
+        pending_list = log.unfinished_transactions
+        pending_list.each do |t|
+          if t.last_touched - Time.now > timeout && t.status == Status::UNCERTAIN
+            status =  master { |m| m.status(t.transaction_id) }
+            commit(t.transaction_id) if status == Status::COMMITED
           end
         end
       end

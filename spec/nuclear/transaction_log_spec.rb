@@ -3,7 +3,7 @@ require 'spec_helper'
 describe Nuclear::TransactionLog do
   context 'master transaction log' do
     context 'with no open transactions' do
-      let(:log) { double(:puts => nil) }
+      let(:log) { double(:puts => nil, :fsync => nil) }
       let(:t_log) do
         # Load from real file to test that but don't allow subsequent writing
         t_log = Nuclear::TransactionLog.new('spec/logs/master.log')

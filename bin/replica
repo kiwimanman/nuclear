@@ -13,8 +13,26 @@ class Replica < Thor
     transportFactory = Thrift::BufferedTransportFactory.new()
     server = Thrift::SimpleServer.new(processor, transport, transportFactory)
 
-    puts "Starting the replica server..."
-    server.serve()
+    threads = []
+    threads << Thread.new {
+      puts "Starting the replica server..."
+      server.serve()
+    }
+    Thread.new {
+      loop do
+        begin
+          puts "Checking timeouts"
+          handler.check_timeouts
+          handler.gossip
+        rescue
+          puts "Timeout and gossip failed"
+        ensure
+          sleep handler.timeout
+        end
+      end
+    }
+    threads.each { |thr| thr.join }
+
     puts "done."
   end
 

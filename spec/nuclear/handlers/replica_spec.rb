@@ -12,6 +12,8 @@ describe Nuclear::Handlers::Replica do
     it { expect(replica.master_port).to eq 4000 }
   end
 
+  it { expect(replica).to respond_to :timeout= }
+
   context '#put' do
     let(:key) { 'test' }
     let(:value) { 'asdf' }
@@ -37,6 +39,26 @@ describe Nuclear::Handlers::Replica do
         replica.remove(key, 1)
       end
       it { expect(replica.status(1)).to be Nuclear::Status::ABORTED }
+    end
+
+    context 'when the network partitions' do
+      before do
+        replica.timeout = -1 # While not a normal value this quarentees a timeout in testing
+      end
+      context 'right after starting the transaction' do
+        before do
+          replica.check_timeouts
+        end
+        it { expect(replica.status(key)).to be Nuclear::Status::ABORTED }
+      end
+      context 'after a votereq for the key' do
+        before do
+          replica.stub(:master).and_return(double(:cast_vote => nil))
+          replica.votereq('0')
+          replica.check_timeouts
+        end
+        it { expect(replica.status('0')).to be Nuclear::Status::UNCERTAIN }
+      end
     end
   end
 end

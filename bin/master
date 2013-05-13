@@ -8,22 +8,38 @@ class Master < Thor
     puts "Starting at #{id}"
     id = id.to_i
 
-    write_ahead_log = Nuclear::TransactionLog.new
+    write_ahead_log = Nuclear::TransactionLog.new("logs/#{id}.log")
     build_frontend_server(id, children, write_ahead_log)
   end
 
   no_commands do
     def build_frontend_server(port, num_children, write_ahead_log)
       handler = Nuclear::Handlers::DistributedStore.new(port, num_children, write_ahead_log)
+      handler.recover
       processor = Nuclear::Store::Processor.new(handler)
       transport = Thrift::ServerSocket.new(port)
       transportFactory = Thrift::BufferedTransportFactory.new()
       server = Thrift::SimpleServer.new(processor, transport, transportFactory)
 
+      thread = Thread.new {
+        puts "Starting the frontend server...\n"
+        server.serve()
+        puts "done."
+      }
 
-      puts "Starting the frontend server...\n"
-      server.serve()
-      puts "done."
+      Thread.new {
+        loop do
+          begin
+            handler.check_timeouts
+          rescue
+            puts "Timeout failed"
+          ensure
+            sleep handler.timeout
+          end
+        end
+      }
+
+      thread.join
     end
   end
 end

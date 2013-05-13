@@ -35,7 +35,7 @@ module Nuclear
     end
 
     def replay(replica)
-      replica.send(*([operation, key] + args))
+      replica.send(*([operation, key] + args << transaction_id))
     end
   end
 end

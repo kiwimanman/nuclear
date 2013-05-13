@@ -2,7 +2,9 @@ require 'spec_helper'
 
 describe Nuclear::Handlers::DistributedStore do
   context 'with one child' do
-    let(:master) { Nuclear::Handlers::DistributedStore.new(4000, 1) }
+    let(:master) do 
+      Nuclear::Handlers::DistributedStore.new(4000, 1)
+    end
    
     context '#cast_vote' do
       let(:transaction_id) { '12345' }

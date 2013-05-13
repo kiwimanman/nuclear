@@ -42,13 +42,13 @@ module Nuclear
     end
 
     def commit
-      db.commit
-      replica.enqueue if replica
+      db.commit if db.transaction_active?
+      replica.enqueue(Actor.current) if replica
     end
 
     def rollback
-      db.rollback
-      replica.enqueue if replica
+      db.rollback if db.transaction_active?
+      replica.enqueue(Actor.current) if replica
     end
   end
 end

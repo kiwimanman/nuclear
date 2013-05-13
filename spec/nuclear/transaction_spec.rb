@@ -57,7 +57,7 @@ describe Nuclear::Transaction do
     context '#replay' do
       it 'should replay on the replica' do
         replica = double
-        replica.should_receive(:send).with(:put, 'test', 'asdf')
+        replica.should_receive(:send).with(:put, 'test', 'asdf', 0)
         transaction.replay(replica)
       end
     end

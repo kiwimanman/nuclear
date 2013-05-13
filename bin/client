@@ -14,8 +14,15 @@ t_id1 = client.put("test", "asdf")
 puts t_id
 sleep 1
 puts client.get("test")
-sleep 1
-puts Nuclear::Status::VALUE_MAP[client.status(t_id)]
-puts Nuclear::Status::VALUE_MAP[client.status("12400")]
 
 transport.close()
+
+begin
+  transport.open()
+  sleep 1
+  status = client.status(t_id)
+  puts Nuclear::Status::VALUE_MAP[status]
+  transport.close()
+end while (status == Nuclear::Status::PENDING)
+
+

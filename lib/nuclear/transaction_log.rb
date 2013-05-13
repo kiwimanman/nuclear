@@ -26,6 +26,7 @@ module Nuclear
 
     def add_transaction(key, transaction_id, operation, *args)  
       log.puts "#{transaction_id} start #{operation} #{key} #{args.join(' ')}"
+      log.fsync
       transation_records[transaction_id.to_i] = Transaction.start(transaction_id, operation, key, args)
       transation_records[transaction_id.to_i].status
     end
@@ -62,29 +63,38 @@ module Nuclear
 
     def commit(transaction_id)
       log.puts "#{transaction_id} commit"
+      log.fsync
       transaction = transation_records[transaction_id.to_i]
       transaction.status = Status::COMMIT
     end
 
     def commited(transaction_id)
       log.puts "#{transaction_id} commited"
+      log.fsync
       transaction = transation_records[transaction_id.to_i]
       transaction.status = Status::COMMITED
     end
 
     def abort(transaction_id)
       log.puts "#{transaction_id} abort"
+      log.fsync
       transaction = transation_records[transaction_id.to_i]
       transaction.status = Status::ABORTED if transaction.status == Status::PENDING
     end
 
     def upvote(transaction_id)
       log.puts "#{transaction_id} voted"
+      log.fsync
 
       touch(transaction_id)
-      transation_records[transaction_id.to_i]
-      transation_records[transaction_id.to_i].votes ||= 0
-      transation_records[transaction_id.to_i].votes += 1
+      if transation_records[transaction_id.to_i].status = Status::PENDING
+        transation_records[transaction_id.to_i].votes ||= 0
+        transation_records[transaction_id.to_i].votes += 1
+        transation_records[transaction_id.to_i].status = Status::UNCERTAIN
+        true
+      else
+        false
+      end
     end
 
     def total_votes_on(transaction_id)
@@ -94,9 +104,6 @@ module Nuclear
     def touch(transaction_id)
       now = Time.now
       transaction = transation_records[transaction_id.to_i]
-      if transaction && transaction.last_touched
-        abort(transaction_id) if (now - transaction.last_touched) > timeout
-      end
       transaction.last_touched = now if transaction
     end
 
