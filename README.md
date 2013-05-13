@@ -2,6 +2,8 @@ Nuclear
 ===
 
 Distributed key value store
+Keith Stone
+CSE 552
 
 How to run:
 ==
