@@ -1,6 +1,8 @@
 require 'spec_helper'
 
 describe Nuclear::Handlers::Replica do
+  let(:key) { 'test' }
+  let(:value) { 'asdf' }
   let(:log) do
     system('rm spec/logs/blank.log')
     Nuclear::TransactionLog.new("spec/logs/blank.log")
@@ -14,9 +16,18 @@ describe Nuclear::Handlers::Replica do
 
   it { expect(replica).to respond_to :timeout= }
 
+  context 'when storage is not working right' do
+    before do
+      s = double(:rollback => true)
+      s.stub(:put).and_raise(SQLite3::BusyException)
+      replica.stub(:next_store).and_return(s)
+      replica.put(key, value, 0)
+    end
+    it { expect(replica.transactors[key]).to be_nil }
+    it { expect(replica.status(0)).to be Nuclear::Status::ABORTED }
+  end
+
   context '#put' do
-    let(:key) { 'test' }
-    let(:value) { 'asdf' }
     before do
       replica.put(key, value, 0)
     end

@@ -29,7 +29,11 @@ module Nuclear
         log.add_transaction(key, transaction_id, :put, value)
 
         if key_conflict?(key)
-          transactors[key].put(key,value)
+          begin
+            transactors[key].put(key,value)
+          rescue
+            abort(transaction_id)
+          end
         else
           abort(transaction_id, false)
         end
@@ -44,7 +48,11 @@ module Nuclear
         log.add_transaction(key, transaction_id, :remove)
 
         if key_conflict?(key)
-          transactors[key].delete(key)
+          begin
+            transactors[key].delete(key)
+          rescue
+            abort(transaction_id)
+          end
         else
           abort(transaction_id, false)
         end
