@@ -83,8 +83,11 @@ module Nuclear
       def commit(transaction_id)
         puts "commit(#{transaction_id})"
         log.commit(transaction_id)
-        broadcast do |client|
-          client.finalize(transaction_id.to_s, Status::COMMITED)
+        begin
+          broadcast do |client|
+            client.finalize(transaction_id.to_s, Status::COMMITED)
+          end
+        rescue
         end
       end
     end

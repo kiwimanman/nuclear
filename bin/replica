@@ -21,7 +21,6 @@ class Replica < Thor
     Thread.new {
       loop do
         begin
-          puts "Checking timeouts"
           handler.check_timeouts
           handler.gossip
         rescue
